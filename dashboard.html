@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Добро пожаловать, {{ username }}!</h2>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Получить данные по криптовалюте</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('get_data') }}">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Криптовалюта</label>
+                        <select name="coin" class="form-select" required>
+                            {% for key, name in [
+                                ("bitcoin", "Bitcoin (BTC)"),
+                                ("ethereum", "Ethereum (ETH)"),
+                                ("solana", "Solana (SOL)"),
+                                ("cardano", "Cardano (ADA)"),
+                                ("ripple", "Ripple (XRP)"),
+                                ("dogecoin", "Dogecoin (DOGE)")
+                            ] %}
+                            <option value="{{ key }}">{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Период</label>
+                        <select name="days" class="form-select" required>
+                            <option value="7">Последние 7 дней</option>
+                            <option value="30">Последние 30 дней</option>
+                            <option value="90">Последние 90 дней</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end mb-3">
+                        <button type="submit" class="btn btn-primary w-100">Получить данные</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if data %}
+    <div class="card">
+        <div class="card-header">
+            <h5>{{ coin_name }} — Цена за {{ days }} дней</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="priceChart" height="100"></canvas>
+
+            <h6 class="mt-4">Таблица данных</h6>
+            <table class="table table-striped table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Дата</th>
+                        <th>Цена (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                    <tr>
+                        <td>{{ item.date }}</td>
+                        <td>{{ item.price }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('priceChart');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ dates | tojson }},
+                datasets: [{
+                    label: 'Цена (USD)',
+                    data: {{ prices | tojson }},
+                    borderColor: '#6C5CE7',
+                    backgroundColor: 'rgba(108, 92, 231, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: false }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+</div>
+{% endblock %}
