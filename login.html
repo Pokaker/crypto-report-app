@@ -1,0 +1,14 @@
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        users = load_users()
+
+        if email in users and users[email] == hash_password(password):
+            session['email'] = email
+            flash('Вы успешно вошли!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Неверный email или пароль', 'danger')
+    return render_template('login.html')

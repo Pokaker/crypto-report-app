@@ -36,36 +36,36 @@ def hash_password(password):
 
 @app.route('/')
 def index():
-    if 'username' in session:
+    if 'email' in session:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
         users = load_users()
 
-        if username in users and users[username] == hash_password(password):
-            session['username'] = username
+        if email in users and users[email] == hash_password(password):
+            session['email'] = email
             flash('Вы успешно вошли!', 'success')
             return redirect(url_for('dashboard'))
         else:
-            flash('Неверный логин или пароль', 'danger')
+            flash('Неверный email или пароль', 'danger')
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
         users = load_users()
 
-        if username in users:
-            flash('Пользователь уже существует', 'danger')
+        if email in users:
+            flash('Пользователь с таким email уже существует', 'danger')
         else:
-            users[username] = hash_password(password)
+            users[email] = hash_password(password)
             save_users(users)
             flash('Регистрация прошла успешно! Теперь войдите.', 'success')
             return redirect(url_for('login'))
@@ -73,13 +73,13 @@ def register():
 
 @app.route('/dashboard')
 def dashboard():
-    if 'username' not in session:
+    if 'email' not in session:
         return redirect(url_for('login'))
-    return render_template('dashboard.html', username=session.get('username'))
+    return render_template('dashboard.html', email=session.get('email'))
 
 @app.route('/get_data', methods=['POST'])
 def get_data():
-    if 'username' not in session:
+    if 'email' not in session:
         return redirect(url_for('login'))
 
     coin = request.form.get('coin')
@@ -112,13 +112,12 @@ def get_data():
 
         coin_name = COINS.get(coin, coin)
 
-        # Сохраняем данные для CSV
         session['last_data'] = data
         session['last_coin_name'] = coin_name
         session['last_days'] = days
 
         return render_template('dashboard.html',
-                             username=session['username'],
+                             email=session['email'],
                              data=data,
                              dates=dates,
                              prices=prices,
@@ -131,7 +130,7 @@ def get_data():
 
 @app.route('/download_csv')
 def download_csv():
-    if 'username' not in session or 'last_data' not in session:
+    if 'email' not in session or 'last_data' not in session:
         flash('Нет данных для скачивания', 'warning')
         return redirect(url_for('dashboard'))
 
@@ -157,7 +156,7 @@ def download_csv():
 
 @app.route('/logout')
 def logout():
-    session.pop('username', None)
+    session.pop('email', None)
     flash('Вы вышли из аккаунта', 'info')
     return redirect(url_for('login'))
 
