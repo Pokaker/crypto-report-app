@@ -5,7 +5,8 @@ import csv
 import json
 import os
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
+import time
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -89,8 +90,9 @@ class CryptoReportApp:
         ttk.Combobox(form, textvariable=self.coin_var, values=list(COINS.keys()), state="readonly", width=18).grid(row=0, column=1, padx=8)
 
         tk.Label(form, text="Период:").grid(row=0, column=2, padx=(15, 0))
-        self.period_var = tk.IntVar(value=7)
-        ttk.Combobox(form, textvariable=self.period_var, values=list(PERIODS.keys()), state="readonly", width=16).grid(row=0, column=3, padx=8)
+        self.period_var = tk.StringVar(value="7")
+        ttk.Combobox(form, textvariable=self.period_var, 
+                     values=list(PERIODS.keys()), state="readonly", width=22).grid(row=0, column=3, padx=8)
 
         ttk.Button(form, text="Получить данные", style="Purple.TButton",
                    command=self.fetch_data).grid(row=0, column=4, padx=20)
@@ -113,9 +115,13 @@ class CryptoReportApp:
 
     def fetch_data(self):
         coin = self.coin_var.get()
-        days = self.period_var.get()
+        period = self.period_var.get()
 
-        data, error = fetch_crypto_data(coin, days)
+        if period in ["7", "30", "90"]:
+            data, error = fetch_crypto_data(coin, int(period))
+        else:
+            data, error = fetch_crypto_data_shifted(coin, period)
+
         if error:
             messagebox.showerror("Ошибка", error)
             return
@@ -134,7 +140,7 @@ class CryptoReportApp:
 
         line, = self.ax.plot(dates, prices, color=PURPLE, linewidth=2.2, marker="o", markersize=4)
         self.ax.fill_between(dates, prices, alpha=0.12, color=PURPLE)
-        self.ax.set_title(f"{COINS[coin]} — Цена за {days} дней", fontsize=11, pad=8)
+        self.ax.set_title(f"{COINS[coin]} — Цена за {PERIODS[period]}", fontsize=11, pad=8)
         self.ax.set_ylabel("Цена (USD)")
 
         self.ax.xaxis.set_major_locator(plt.MaxNLocator(7))
@@ -143,7 +149,6 @@ class CryptoReportApp:
         self.fig.tight_layout()
         self.canvas.draw_idle()
 
-        # Всплывающие подсказки
         cursor = mplcursors.cursor(line, hover=True)
         cursor.connect("add", lambda sel: sel.annotation.set_text(
             f"{sel.target[0]:.0f}\n{sel.target[1]:.2f} USD"
@@ -222,7 +227,45 @@ def fetch_crypto_data(coin_id, days):
     except Exception as e:
         return None, str(e)
 
+def fetch_crypto_data_shifted(coin_id, period_type):
+    now = datetime.now()
 
+    if period_type == "week_ago":
+        to_date = now - timedelta(days=7)
+        from_date = to_date - timedelta(days=7)
+    elif period_type == "month_ago":
+        to_date = now - timedelta(days=30)
+        from_date = to_date - timedelta(days=30)
+    else:
+        return None, "Неизвестный период"
+
+    from_ts = int(time.mktime(from_date.timetuple()))
+    to_ts = int(time.mktime(to_date.timetuple()))
+
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart/range"
+    params = {
+        "vs_currency": "usd",
+        "from": from_ts,
+        "to": to_ts
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        raw = response.json()
+        prices = raw.get("prices", [])
+
+        result = []
+        for timestamp, price in prices:
+            date_str = datetime.fromtimestamp(timestamp / 1000).strftime("%Y-%m-%d")
+            result.append({"date": date_str, "price": round(price, 2)})
+
+        return result, None
+    except Exception as e:
+        return None, str(e)
+
+
+# ==================== КОНСТАНТЫ ====================
 COINS = {
     "bitcoin": "Bitcoin (BTC)",
     "ethereum": "Ethereum (ETH)",
@@ -233,9 +276,11 @@ COINS = {
 }
 
 PERIODS = {
-    7: "7 дней",
-    30: "30 дней",
-    90: "90 дней",
+    "7": "7 дней",
+    "30": "30 дней",
+    "90": "90 дней",
+    "week_ago": "Неделя назад (7 дней)",
+    "month_ago": "Месяц назад (30 дней)",
 }
 
 
